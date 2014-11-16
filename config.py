@@ -15,5 +15,5 @@ RESET_WAIT_SECS = 9  # when we first access MW board, it resets. Wait this long
 CMD_WAIT_TIME = 0.01  # minimum time between serial commands.
 ITER_TIME = 0.8
 
-THINGS_TO_LOG = 'MSP_ALTITUDE,MSP_RAW_IMU,MSP_RAW_GPS,MSP_ATTITUDE,MSP_RC'
+THINGS_TO_LOG = 'MSP_ALTITUDE,MSP_RAW_IMU,MSP_RAW_GPS,MSP_ATTITUDE,MSP_RC,'
 THINGS_TO_LOG += 'MSP_MOTOR'
