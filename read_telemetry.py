@@ -116,6 +116,7 @@ def main():
         cs.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
 
     if args.output is not None:
+        args.output = args.output.format(timestamp=str(time.time()))
         if args.output.endswith('.gz'):
             outfile = gzip.open(args.output, 'w+', 9)
         else:
