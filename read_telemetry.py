@@ -147,7 +147,7 @@ def main():
             prompt = input('> ')
         timestamp = time.time()
         if nErrs > 1:
-            if timestamp > (started + config.WARMUP_TIME):
+            if timestamp <= (started + config.WARMUP_TIME):
                 wait_time += 0.01
             nErrs = 0
         if args.interactive and prompt is not '':
