@@ -75,7 +75,7 @@ class Joystick:
                            10)
 
 
-joy = {
+dials = {
     'left': Joystick(pos=(10, 10)),
     'right': Joystick(pos=(158, 10))
 }
@@ -101,9 +101,15 @@ while True:
     screen.fill(0x000000)
     for event in pygame.event.get():
         pass
-    joy['left'].update((output['RC_YAW'], output['RC_PITCH']))
-    joy['left'].draw(screen)
-    joy['right'].update((output['RC_ROLL'], output['RC_THROTTLE']))
-    joy['right'].draw(screen)
+
+    try:
+        dials['left'].update((output['RC_YAW'], output['RC_PITCH']))
+        dials['right'].update((output['RC_ROLL'], output['RC_THROTTLE']))
+    except KeyError:
+        pass
+
+    for dial_name, dial in dials.items():
+        dial.draw(screen)
+
     pygame.display.update()
     c.tick(60)

@@ -140,11 +140,15 @@ def main():
     wait_time = config.CMD_WAIT_TIME
     nErrs = 0
     header_written = False
+    started = time.time()
+
     while True:
         if args.interactive:
             prompt = input('> ')
+        timestamp = time.time()
         if nErrs > 1:
-            wait_time += 0.01
+            if timestamp > (started + config.WARMUP_TIME):
+                wait_time += 0.01
             nErrs = 0
         if args.interactive and prompt is not '':
             try:
@@ -159,7 +163,6 @@ def main():
                 print(e)
         try:
             frame += 1
-            timestamp = time.time()
             data = get_multiple_packets(ser, args.log.split(','), wait_time)
             data['packet'] = {'frame': frame, 'timestamp': timestamp,
                               'wait_time': wait_time}
