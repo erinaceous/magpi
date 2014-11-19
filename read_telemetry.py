@@ -183,9 +183,9 @@ def main():
                                     for key in data.keys()], []))
                 if args.udp_port is not -1:
                     if frame % args.header_every == 0:
-                        cs.sendto('$MAGPI[%s]_H,' % args.name, header + '\n',
+                        cs.sendto('$MAGPI[%s]_H,' % args.name + header + '\n',
                                   ('255,255,255,255', args.udp_port))
-                    cs.sendto('$MAGPI[%s]_D,' % args.name, data + '\n',
+                    cs.sendto('$MAGPI[%s]_D,' % args.name + data + '\n',
                               ('255.255.255.255', args.udp_port))
                 print(data, file=outfile)
             nErrs = 0
