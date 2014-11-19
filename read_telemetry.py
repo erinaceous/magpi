@@ -2,8 +2,8 @@
 # vim: set tabstop=4 shiftwidth=4 textwidth=79 cc=72,79:
 """
     read_telemetry: Read useful data from MultiWii board in a fast loop.
-                    saves to disk using PyTables, so data is stored in
-                    HDF5 files.
+                    saves to disk as gzipped CSV files. Also sends data
+                    in a UDP broadcast.
     Original Author: Owain Jones [github.com/erinaceous] [contact@odj.me]
 """
 # TODO: Python3-ize
@@ -25,6 +25,11 @@ import sys
 
 def parse_args():
     parser = argparse.ArgumentParser()
+    parser.add_argument('--header-every', type=int,
+                        default=config.HEADER_EVERY,
+                        help='Broadcast data header every N broadcasts')
+    parser.add_argument('-n', '--name', default=config.NAME,
+                        help='Name/ID of quadcopter.')
     parser.add_argument('-s', '--serial-port', default=config.SERIAL_PORT,
                         help='Serial port to communicate with MultiWii over')
     parser.add_argument('-l', '--log', default=config.THINGS_TO_LOG,
@@ -116,7 +121,8 @@ def main():
         cs.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
 
     if args.output is not None:
-        args.output = args.output.format(timestamp=str(time.time()))
+        args.output = args.output.format(timestamp=str(time.time()),
+                                         name=args.name)
         if args.output.endswith('.gz'):
             outfile = gzip.open(args.output, 'w+', 9)
         else:
@@ -176,7 +182,10 @@ def main():
                                      if keykey.startswith('_') is False]
                                     for key in data.keys()], []))
                 if args.udp_port is not -1:
-                    cs.sendto(header + ';' + data + '\n',
+                    if frame % args.header_every == 0:
+                        cs.sendto('$MAGPI[%s]_H,' % args.name, header + '\n',
+                                  ('255,255,255,255', args.udp_port))
+                    cs.sendto('$MAGPI[%s]_D,' % args.name, data + '\n',
                               ('255.255.255.255', args.udp_port))
                 print(data, file=outfile)
             nErrs = 0

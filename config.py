@@ -7,8 +7,10 @@
 from __future__ import print_function
 
 
+NAME = 'magpi'
 SERIAL_PORT = '/dev/ttyUSB0'
 UDP_PORT = 43110  # UDP port on which to broadcast telemetry. -1 to disable.
+HEADER_EVERY = 10
 DATA_FILE = 'data/flight_{timestamp}.csv.gz'  # File in which to save
                                               # telemetry. None to disable.
 RESET_WAIT_SECS = 9  # when we first access MW board, it resets. Wait this long
