@@ -16,7 +16,6 @@ else
 fi
 
 ifconfig $IFACE down  # disable if up
-iw reg set BO  # more transmit power
 ifconfig $IFACE up
 iwconfig $IFACE mode ad-hoc
 iwconfig $IFACE txpower 1000mW
