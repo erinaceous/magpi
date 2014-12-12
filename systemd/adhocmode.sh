@@ -1,10 +1,25 @@
 #!/bin/bash
 
-ifconfig wlan0 down  # disable if up
+DEFAULT_IFACE="wlan0"
+DEFAULT_IP="192.168.125.1"
+
+if [ -f /etc/adhoc_ip ]; then
+	IP="`cat /etc/adhoc_ip`"
+else
+	IP="$DEFAULT_IP"
+fi
+
+if [ -f /etc/adhoc_iface ]; then
+	IFACE="`cat /etc/adhoc_iface`"
+else
+	IFACE="$DEFAULT_IFACE"
+fi
+
+ifconfig $IFACE down  # disable if up
 iw reg set BO  # more transmit power
-ifconfig wlan0 up
-iwconfig wlan0 mode ad-hoc
-iwconfig wlan0 txpower 1000mW
-iwconfig wlan0 essid magpi
-iwconfig wlan0 commit
-ifconfig wlan0 192.168.125.1
+ifconfig $IFACE up
+iwconfig $IFACE mode ad-hoc
+iwconfig $IFACE txpower 1000mW
+iwconfig $IFACE essid `hostname`
+iwconfig $IFACE commit
+ifconfig $IFACE $IP
