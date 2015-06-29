@@ -7,4 +7,4 @@ else
 fi
 
 # Mode 5 = 1296x730
-raspivid -awb off -ex fixedfps -w 1296 -h 730 -fps 49 -b 20000000 -t 0 -n -o $OUTFILE
+raspivid -vf -awb off -ex fixedfps -w 1296 -h 730 -fps 49 -b 25000000 -t 0 -n -o $OUTFILE
