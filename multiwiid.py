@@ -24,8 +24,8 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('-s', '--serial-port', default=config.SERIAL_PORT,
                         help='Serial port to communicate with MultiWii over')
-    parser.add_argument('-o', '--output-socket', default=config.OUTPUT_SOCKET,
-                        help='Path to UNIX socket to create')
+    parser.add_argument('-o', '--output-port', default=config.OUTPUT_PORT,
+                        help='Allow clients to connect on this TCP port')
     return parser.parse_args()
 
 
@@ -50,13 +50,13 @@ def serial_config(serial_port=config.SERIAL_PORT):
 def main():
     args = parse_args()
     ser = serial_config(args.serial_port)
-    srv = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    srv.bind(args.output_socket)
+    srv.bind(('0.0.0.0', args.output_port))
     srv.listen(5)
 
     clients = [srv]
-    recv_buffer = 4096
+    recv_buffer = 8192
 
     while True:
         read_socks, write_socks, err_socks = select.select(
@@ -71,10 +71,10 @@ def main():
                     data = sock.recv(recv_buffer)
                     if data:
                         ser.write(data)
-                        time.sleep(config.CMD_WAIT_TIME)
-                        s = ser.read()
-                        sock.send(s)
-                except:
+                        s = ser.read(recv_buffer)
+                        sock.sendall(s)
+                except Exception as e:
+                    print(e)
                     sock.close()
                     clients.remove(sock)
 

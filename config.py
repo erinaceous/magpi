@@ -10,6 +10,7 @@ from __future__ import print_function
 NAME = 'magpi'
 SERIAL_PORT = '/dev/ttyUSB0'
 OUTPUT_SOCKET = '/tmp/multiwii.sock'
+OUTPUT_PORT = 5001
 # UDP_PORT = 43110  # UDP port on which to broadcast telemetry. -1 to disable.
 UDP_PORT = -1
 HEADER_EVERY = 10
