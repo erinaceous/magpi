@@ -18,6 +18,7 @@ import config
 import select
 import serial
 import socket
+import time
 
 
 def parse_args():
@@ -43,7 +44,7 @@ def serial_config(serial_port=config.SERIAL_PORT):
     ser.xonxoff = False
     ser.rtscts = False
     ser.dsrdtr = False
-    ser.writeTimeout = 2
+    ser.writeTimeout = 0
     return ser
 
 
@@ -53,10 +54,10 @@ def main():
     srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     srv.bind(('0.0.0.0', args.output_port))
-    srv.listen(5)
+    srv.listen(0)
 
     clients = [srv]
-    recv_buffer = 8192
+    recv_buffer = 1048576  # 1KB buffer is probably overkill! Oh well
 
     while True:
         read_socks, write_socks, err_socks = select.select(
@@ -66,17 +67,35 @@ def main():
             if sock == srv:
                 sockfd, addr = srv.accept()
                 clients.append(sockfd)
+		print(time.time(), "Accepted new client", addr)
             else:
                 try:
                     data = sock.recv(recv_buffer)
                     if data:
                         ser.write(data)
-                        s = ser.read(recv_buffer)
-                        sock.sendall(s)
+                        s = ''
+                        while True:
+                            r = ser.read(recv_buffer)
+                            if r in ['', None]:
+                                break
+                            s += r
+                        if len(s) > 0:
+                            sock.sendall(s)
+                        print('<<', data)
+                        print('>>', s)
+                    else:
+                        sock.close()
+                        clients.remove(sock)
+                        print(time.time(), "Removed client")
                 except Exception as e:
                     print(e)
                     sock.close()
                     clients.remove(sock)
+                    print(time.time(), "Removed client")
+        for sock in err_socks:
+            sock.close()
+            clients.remove(sock)
+            print(time.time(), "Removed client")
 
     srv.close()
 

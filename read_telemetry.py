@@ -10,17 +10,21 @@
 
 from __future__ import print_function
 from collections import OrderedDict
+import subprocess
 import argparse
 import readline
 import multiwii
 import strconv
 import config
-import serial
 import struct
 import socket
+import array
 import gzip
 import time
 import sys
+
+
+recv_buffer = 1048576
 
 
 def parse_args():
@@ -30,8 +34,8 @@ def parse_args():
                         help='Broadcast data header every N broadcasts')
     parser.add_argument('-n', '--name', default=config.NAME,
                         help='Name/ID of quadcopter.')
-    parser.add_argument('-s', '--serial-port', default=config.SERIAL_PORT,
-                        help='Serial port to communicate with MultiWii over')
+    parser.add_argument('-t', '--input-port', default=config.OUTPUT_PORT,
+                        help='Port to communicate with multiwiid over')
     parser.add_argument('-l', '--log', default=config.THINGS_TO_LOG,
                         help='Comma-delimited list of serial commands to run')
     parser.add_argument('-o', '--output', default=config.DATA_FILE,
@@ -39,46 +43,37 @@ def parse_args():
     parser.add_argument('-i', '--interactive', default=False,
                         action='store_true')
     parser.add_argument('-p', '--udp-port', type=int, default=config.UDP_PORT)
+    parser.add_argument('--video', default=config.VIDEO_FILE)
     return parser.parse_args()
 
 
-def serial_config(serial_port=config.SERIAL_PORT):
-    # Thanks to
-    # http://www.calvin.edu/academic/engineering/2013-14-team8/code/final/MultiWii_Telemetry_RevH.py.tmp20140503-19-1pkuhii
-    # who I copy-pasted this block from, saving me a bunch of time
-    # figuring out why my serial wasn't working :)
-    ser = serial.Serial(serial_port)
-    ser.baudrate = 115200
-    ser.bytesize = serial.EIGHTBITS
-    ser.parity = serial.PARITY_NONE
-    ser.stopbits = serial.STOPBITS_ONE
-    ser.timeout = 0
-    ser.xonxoff = False
-    ser.rtscts = False
-    ser.dsrdtr = False
-    ser.writeTimeout = 2
-    return ser
+def socket_config(socket_port=config.OUTPUT_PORT):
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.connect(('127.0.0.1', socket_port))
+    return sock
 
 
-def get_packet(ser, name, wait_time=config.CMD_WAIT_TIME):
-    ser.write(multiwii.get_command(name))
-    time.sleep(wait_time)
-    s = ser.readall()
+def get_packet(sock, name, wait_time=config.CMD_WAIT_TIME):
+    sock.send(multiwii.get_command(name))
+    s = sock.recv(recv_buffer)
     return multiwii.rx_parse(name, s)
 
 
-def get_multiple_packets(ser, names, wait_time=config.CMD_WAIT_TIME):
-    ser.write(''.join([multiwii.get_command(name) for name in names]))
-    time.sleep(wait_time)
+def get_multiple_packets(sock, names, wait_time=config.CMD_WAIT_TIME):
+    sock.send(b''.join([multiwii.get_command(name) for name in names]))
     output = OrderedDict()
-    for name in names:
+    # input = array.array('c', sock.recv(recv_buffer))
+    input = sock.recv(recv_buffer).split('$M>')
+    if input[0] == '':
+        input.remove(input[0])
+    for i, name in enumerate(names):
         l = multiwii.get_response_length(name)
-        s = ser.read(l)
+        s = b'$M>' + input[i]
         output[name] = multiwii.rx_parse(name, s)
     return output
 
 
-def send_multiple_packets(ser, datas, wait_time=config.CMD_WAIT_TIME):
+def send_multiple_packets(sock, datas, wait_time=config.CMD_WAIT_TIME):
     packets = ''
     for data in datas:
         data = data.strip().split(' ')
@@ -87,9 +82,8 @@ def send_multiple_packets(ser, datas, wait_time=config.CMD_WAIT_TIME):
                                       *[strconv.convert(d) for d in data[1:]])
         packets += packet
         print('|', cmd, packet.encode('hex'))
-    ser.write(packets)
-    time.sleep(wait_time)
-    print('<', ser.readall())
+    sock.send(packets)
+    print('<', sock.recv(recv_buffer))
 
 
 def pretty_str(packet):
@@ -104,16 +98,25 @@ def pretty_str(packet):
             print('%s:' % key, value, end=end)
 
 
+cam_proc = None
+
+
+def at_exit():
+    readline.write_history_file()
+    if cam_proc is not None:
+        cam_proc.terminate()
+
+
 def main():
     try:
         readline.read_history_file()
     except IOError:
         pass
     import atexit
-    atexit.register(readline.write_history_file)
+    atexit.register(at_exit)
 
     args = parse_args()
-    ser = serial_config(args.serial_port)
+    sock = socket_config(socket_port=args.input_port)
 
     if args.udp_port is not -1:
         cs = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -130,17 +133,30 @@ def main():
     else:
         outfile = open('/dev/null', 'a+')
 
-    for i in range(config.RESET_WAIT_SECS, 0, -1):
-        print('Waiting for MultiWii board to reload... %02d' % i, end='\r')
-        sys.stdout.flush()
-        time.sleep(1)
-    print('-' * 79)
+    args.video = args.video.format(timestamp=str(time.time()), name=args.name)
+
+    # for i in range(config.RESET_WAIT_SECS, 0, -1):
+    #     print('Waiting for MultiWii board to reload... %02d' % i, end='\r')
+    #     sys.stdout.flush()
+    #     time.sleep(1)
+    # print('-' * 79)
 
     frame = 0
     wait_time = config.CMD_WAIT_TIME
     nErrs = 0
     header_written = False
     started = time.time()
+    cam_proc = None
+
+    if config.RECORD_CAMERA:
+        cam_proc = subprocess.Popen([
+            '/root/magpi/record_camera.sh', args.video
+        ])
+
+    try:
+        sock.recv(recv_buffer, socket.MSG_DONTWAIT)
+    except socket.error:
+        pass
 
     while True:
         if args.interactive:
@@ -154,7 +170,7 @@ def main():
             try:
                 if prompt.lower() in ['exit', 'quit']:
                     raise SystemExit
-                send_multiple_packets(ser, prompt.strip().split(','),
+                send_multiple_packets(sock, prompt.strip().split(','),
                                       wait_time)
             except KeyError:
                 print('Invalid command')
@@ -163,7 +179,10 @@ def main():
                 print(e)
         try:
             frame += 1
-            data = get_multiple_packets(ser, args.log.split(','), wait_time)
+            data = get_multiple_packets(sock, args.log.split(','), wait_time)
+            # data = {}
+            # for arg in args.log.split(','):
+            #     data[arg] = get_packet(sock, arg)
             data['packet'] = {'frame': frame, 'timestamp': timestamp,
                               'wait_time': wait_time}
             if args.interactive:
@@ -198,10 +217,22 @@ def main():
         except multiwii.Command.NotACommand as e:
             nErrs += 1
             print(timestamp, e)
+        except IndexError as e:
+            nErrs += 1
+            print(timestamp, e)
+        except struct.error as e:
+            nErrs += 1
+            print(timestamp, e)
         if args.interactive:
             print('-' * 79)
-        ser.readall()
-        time.sleep(0)
+        try:
+            sock.recv(recv_buffer, socket.MSG_DONTWAIT)
+        except socket.error:
+            pass
+        time.sleep(wait_time)
+
+    if cam_proc is not None:
+        cam_proc.terminate()
 
 
 if __name__ == '__main__':
