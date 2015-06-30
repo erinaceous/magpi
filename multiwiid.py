@@ -67,7 +67,7 @@ def main():
             if sock == srv:
                 sockfd, addr = srv.accept()
                 clients.append(sockfd)
-		print(time.time(), "Accepted new client", addr)
+                print(time.time(), "Accepted new client", addr)
             else:
                 try:
                     data = sock.recv(recv_buffer)
