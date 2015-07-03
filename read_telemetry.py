@@ -135,11 +135,11 @@ def main():
 
     args.video = args.video.format(timestamp=str(time.time()), name=args.name)
 
-    # for i in range(config.RESET_WAIT_SECS, 0, -1):
-    #     print('Waiting for MultiWii board to reload... %02d' % i, end='\r')
-    #     sys.stdout.flush()
-    #     time.sleep(1)
-    # print('-' * 79)
+    for i in range(config.RESET_WAIT_SECS, 0, -1):
+        print('Waiting for MultiWii board to reload... %02d' % i, end='\r')
+        sys.stdout.flush()
+        time.sleep(1)
+    print('-' * 79)
 
     frame = 0
     wait_time = config.CMD_WAIT_TIME

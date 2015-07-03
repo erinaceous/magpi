@@ -1,10 +1,21 @@
 #!/bin/bash
 
 if [ "$1" = "" ]; then
-    OUTFILE="/root/recording.h264"
+    OUTFILE="/data/recording.h264"
 else
     OUTFILE="$1";
 fi
 
-# Mode 5 = 1296x730
-raspivid -awb off -ex fixedfps -w 1296 -h 730 -fps 49 -b 20000000 -t 0 -n -o $OUTFILE
+BITRATE=25000000
+WIDTH=1296
+HEIGHT=730
+FPS=49
+
+# Set ionice priority to highest possible. Don't set to realtime in case we
+# freeze the Pi / stop it from being able to write telemetry to SD.
+# Try and buffer the output a bit more too by piping to file rather than
+# letting raspivid write directly to it.
+# Also enable -ih (inline headers) so we get timing information!
+
+ionice -c 1 -n 1 raspivid -vf -awb off -ex fixedfps -ih \
+    -w $WIDTH -h $HEIGHT -fps $FPS -b $BITRATE -t 0 -n -o $OUTFILE
