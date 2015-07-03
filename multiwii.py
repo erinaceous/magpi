@@ -95,8 +95,12 @@ class Command:
         else:
             message = struct.pack(self.dtype_cmd[:-1], *args)
         for byte in message[3:]:
-            checksum ^= (ord(byte) & 0xFF)
-        message += struct.pack('<B', checksum)
+        # for byte in message:
+            # checksum ^= (ord(byte) & 0xFF)
+            checksum ^= ord(byte)
+        args.append(checksum)
+        # message += struct.pack('<B', checksum)
+        message = struct.patch(self.dtype_cmd[:-1] + '<B', *args)
         return message
 
     def get_response_length(self):
