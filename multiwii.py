@@ -40,6 +40,9 @@ class Command:
     class NotACommand(Exception):
         pass
 
+    class BadPayloadLength(Exception):
+        pass
+
     def __init__(self, mid, tx, ignoreChecksum, *params):
         self.tx = False
         self.ignoreChecksum = False
@@ -53,11 +56,14 @@ class Command:
         self.parameters['_len'] = 'uint8'
         self.parameters['_id'] = 'uint8'
         self.message_id = mid
+        self.data_size = 0
+        self.data_len = len(params)
         for (name, dtype) in params:
             self.parameters[name] = dtype
+            self.data_size += struct.calcsize(TX_TYPES[dtype])
         self.parameters['_checksum'] = 'uint8'
         self.dtype = ENDIANNESS + ''.join([
-            TX_TYPES[value] for value in self.parameters.values()    
+            TX_TYPES[value] for value in self.parameters.values()
         ])
         self.dtype_cmd = ENDIANNESS + ''.join([
             TX_TYPES[value] for key, value in self.parameters.items()
@@ -84,7 +90,17 @@ class Command:
         return output
 
     def get_command(self, *payload):
-        pl_len = len(payload)
+        # pl_len = struct.calcsize(self.dtype[:-1])
+        if len(payload) == 0:
+            pl_len = 0
+        elif len(payload) == self.data_len:
+            pl_len = self.data_size
+        else:
+            raise Command.BadPayloadLength(
+                "Bad payload length of %d, should be %d" % (
+                    len(payload), self.data_len
+                )
+            )
         args = [x for x in Command.CMD_HEADER]
         args.extend([pl_len, self.message_id])
         args.extend(payload)
@@ -260,9 +276,6 @@ COMMANDS = {
                                  ('byteThrottle_EXPO', 'uint8')
     ),
     # FIXME PID controller rx/tx definitions
-    # 'MSP_SET_PID': Command(202,
-    #
-    # ),
     'MSP_SET_PID': Command(202, 'tx', 'no',
                            *sum([
                                  list(zip(['%s_%s' % (item, c) for c in 'PID'],
@@ -307,7 +320,6 @@ COMMANDS = {
                                   ('global_conf.currentSet', 'uint8')),
     'MSP_SET_HEAD': Command(211, 'tx', 'no', ('magHold', 'int16')),
     'MSP_BIND': Command(240, 'tx', 'no'),
-    'MSP_EEPROM_WRITE': Command(250, 'tx', 'no')
 }
 
 
@@ -337,3 +349,11 @@ def get_command_dtype(name):
 
 def get_response_dtype(name):
     return COMMANDS[name].dtype
+
+def ser_cmd(ser, cmd, *payload):
+    ser.write(tx_generate(cmd, *payload))
+    return ser.read(struct.calcsize(COMMANDS[cmd].dtype_cmd))
+
+def ser_ask(ser, cmd, bufsize=1024):
+    ser.write(tx_generate(cmd))
+    return rx_parse(cmd, ser.read(bufsize))
