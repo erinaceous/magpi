@@ -37,4 +37,5 @@ if __name__ == '__main__':
         conn.send(multiwii.tx_generate(
             'MSP_SET_RAW_RC', *[1000 + (i % 1000)] * 8
         ))
+        i += 1
         time.sleep(0.1)
