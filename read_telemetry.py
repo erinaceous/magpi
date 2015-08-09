@@ -38,12 +38,11 @@ def parse_args():
                         help='Port to communicate with multiwiid over')
     parser.add_argument('-l', '--log', default=config.THINGS_TO_LOG,
                         help='Comma-delimited list of serial commands to run')
-    parser.add_argument('-o', '--output', default=config.DATA_FILE,
+    parser.add_argument('-o', '--output', default=config.FILE_PREFIX,
                         help='File to put CSV output in. Can also gzip files.')
     parser.add_argument('-i', '--interactive', default=False,
                         action='store_true')
     parser.add_argument('-p', '--udp-port', type=int, default=config.UDP_PORT)
-    parser.add_argument('--video', default=config.VIDEO_FILE)
     return parser.parse_args()
 
 
@@ -125,21 +124,17 @@ def main():
 
     if args.output is not None:
         args.output = args.output.format(timestamp=str(time.time()),
-                                         name=args.name)
-        if args.output.endswith('.gz'):
-            outfile = gzip.open(args.output, 'w+', 9)
-        else:
-            outfile = open(args.output, 'w+')
+                                         name=args.name) + '.csv.gz'
+        args.video = args.output.replace('.csv.gz', '.h264')
+        outfile = gzip.open(args.output, 'w+', 9)
     else:
         outfile = open('/dev/null', 'a+')
 
-    args.video = args.video.format(timestamp=str(time.time()), name=args.name)
-
-    for i in range(config.RESET_WAIT_SECS, 0, -1):
-        print('Waiting for MultiWii board to reload... %02d' % i, end='\r')
-        sys.stdout.flush()
-        time.sleep(1)
-    print('-' * 79)
+    # for i in range(config.RESET_WAIT_SECS, 0, -1):
+    #     print('Waiting for MultiWii board to reload... %02d' % i, end='\r')
+    #     sys.stdout.flush()
+    #     time.sleep(1)
+    # print('-' * 79)
 
     frame = 0
     wait_time = config.CMD_WAIT_TIME
@@ -148,7 +143,7 @@ def main():
     started = time.time()
     cam_proc = None
 
-    if config.RECORD_CAMERA:
+    if config.RECORD_CAMERA and args.video is not None:
         cam_proc = subprocess.Popen([
             '/root/magpi/record_camera.sh', args.video
         ])
