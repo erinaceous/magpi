@@ -37,7 +37,11 @@ if __name__ == '__main__':
             'MSP_SET_RAW_RC', *[1500, 1500, 2000, 1000, 1500, 1500, 1500, 1500]
         ))
         time.sleep(0.1)
-    time.sleep(3)
+    for i in range(0, 15):
+        conn.send(multiwii.tx_generate(
+            'MSP_SET_RAW_RC', *[1500, 1500, 1500, 1000, 1500, 1500, 1500, 1500]
+        ))
+        time.sleep(0.1)
     for i in range(0, 15):
         conn.send(multiwii.tx_generate(
             'MSP_SET_RAW_RC', *[1500, 1500, 1000, 1000, 1500, 1500, 1500, 1500]
