@@ -37,6 +37,8 @@ def kill_proc():
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('-qt', '--quadtarget-path', default='./QuadTarget')
+    parser.add_argument('-a', '--addr', default='127.0.0.1')
+    parser.add_argument('-p', '--port', default=5001)
     parser.add_argument('-o', '--output-video', default=None)
     return parser.parse_args()
 
@@ -45,9 +47,16 @@ if __name__ == '__main__':
     atexit.register(kill_proc)
     args = parse_args()
     conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    conn.connect(('127.0.0.1', 5001))
+    conn.connect((args.addr, args.port))
     print()
+    qt_args = []
+    if args.output_video is not None:
+        qt_args = [args.output_video]
     p = asyncproc.Process(args.quadtarget_path)
+    center = 1500.0
+    bounds = 500.0
+    max_dist = 20.0
+    dist_scale = bounds / max_dist
     while True:
         poll = p.wait(os.WNOHANG)
         if poll is not None:
@@ -56,12 +65,28 @@ if __name__ == '__main__':
         if out != "":
             try:
                 decoded = json.loads(out)
-                pitch = int(1300 + (decoded['sticks']['pitch'] * 400))
-		roll = int(1300 + (decoded['sticks']['roll'] * 400))
-		others = [1500, 1000, 1500, 1500, 1500, 1500]
+                dist = 1.0
+                if 'target' in decoded and decoded['target'] is not None:
+                    dist = float(decoded['target']['distance(m)'])
+                if dist > max_dist:
+                    dist = max_dist
+                if dist < 1:
+                    dist = 1.0
+                raw_pitch = 0.5 - (1.0 - decoded['sticks']['pitch'])
+                raw_roll = 0.5 - decoded['sticks']['roll']
+                raw_yaw = decoded['sticks']['yaw']
+                pitch = int(center - ((raw_pitch * dist) * dist_scale))
+                roll = int(center - ((raw_roll * dist) * dist_scale))
+                yaw = raw_yaw
+                if yaw < 0:
+                    yaw = 1300
+                elif yaw > 0:
+                    yaw = 1700
+                print(dist, pitch, roll, yaw)
+                others = [1000, 1500, 1500, 1500, 1500]
                 conn.send(multiwii.tx_generate(
-			'MSP_SET_RAW_RC', *[roll, pitch] + others
-		))
+                    'MSP_SET_RAW_RC', *[roll, pitch, yaw] + others
+                ))
             except JSONError as e:
                 print(e)
                 print(out)
