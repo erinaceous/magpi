@@ -88,11 +88,19 @@ class RCThread(threading.Thread):
 
 
 if __name__ == '__main__':
+    # Make sure we clean up safely. In this case, if python throws any
+    # unhandled exceptions, we want to disarm the 'copter before
+    # quitting.
     atexit.register(kill_proc)
+
     args = parse_args()
+
+    # Configure socket connection to multiwiid
     conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     conn.connect((args.addr, args.port))
     conn.settimeout(0.0)
+
+    # Set up the QuadTarget process
     print()
     qt_args = []
     if args.output_video is not None:
@@ -101,21 +109,37 @@ if __name__ == '__main__':
         ' '.join([args.quadtarget_path] + qt_args),
         stdout=subprocess.PIPE
     )
+
+    # Values for scaling
     center = 1500.0
     bounds = 500.0
     max_dist = 20.0
     dist_scale = bounds / max_dist
-    # Arm copter. For safety right now this actually disarms it
-    set_armed(False)
+
+    # Set up thread for sending RC commands. This is needed so we can
+    # send commands at a constant rate regardless of QuadTarget's
+    # framerate.
     rc = RCThread()
     rc.daemon = True
+
+    # Arm copter. For safety right now this actually disarms it
+    set_armed(False)
+
+    # Start the RC thread. Now it has full control of the sticks, until
+    # throttle reaches minimum value.
     rc.start()
     while THROTTLE > 1150:
+
+        # Check whether QuadTarget process is still running
         poll = p.poll()
         if poll is not None:
             break
-        out = p.stdout.readline()
+
+        # Clear QuadTarget output, so that we'll get the newest data.
         p.stdout.flush()
+
+        # Read JSON data from QuadTarget and decode it.
+        out = p.stdout.readline()
         if out != "":
             try:
                 decoded = json.loads(out)
@@ -141,10 +165,14 @@ if __name__ == '__main__':
             except JSONError as e:
                 print(e, out)
                 continue
+
+        # Report current state.
         print('dist: %0.3f' % dist, 'p:', PITCH, 'r:', ROLL, 'y:', YAW,
               't:', THROTTLE, 'fps: %0.3f' % fps, '    ', end='\r')
     print()
+
     # Disarm copter
     rc.stop()
     set_armed(False)
+
     print(time.time(), 'bye')
