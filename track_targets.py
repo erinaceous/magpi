@@ -27,10 +27,28 @@ import os
 
 
 p = None
+conn = None
+rc = None
+
+
+def set_armed(arm=False):
+    if arm:
+        print(time.time(), 'arming')
+        yaw_val = 2000
+    else:
+        print(time.time(), 'disarming')
+        yaw_val = 1000
+    for i in range(0, 12):
+        conn.send(multiwii.tx_generate('MSP_SET_RAW_RC',
+            *[1500, 1500, yaw_val, 1000] + [1500] * 4
+        ))
+        time.sleep(0.1)
 
 
 def kill_proc():
     p.terminate()
+    rc.stop()
+    set_armed(False)
     time.sleep(2)
     p.kill()
 
@@ -47,22 +65,26 @@ def parse_args():
 ROLL = 1500
 PITCH = 1500
 YAW = 1500
-THROTTLE = 1000
+THROTTLE = 1600
 OTHERS = [1500] * 4
 SLEEP = 0.1
 
 
 class RCThread(threading.Thread):
     def run(self):
+        self.running = True
         local = threading.local()
         local.conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         local.conn.connect((args.addr, args.port))
         local.conn.settimeout(0.0)
-        while True:
+        while self.running:
             local.conn.send(multiwii.tx_generate(
                 'MSP_SET_RAW_RC', *[ROLL, PITCH, YAW, THROTTLE] + OTHERS
             ))
             time.sleep(SLEEP)
+
+    def stop(self):
+        self.running = False
 
 
 if __name__ == '__main__':
@@ -83,10 +105,12 @@ if __name__ == '__main__':
     bounds = 500.0
     max_dist = 20.0
     dist_scale = bounds / max_dist
+    # Arm copter. For safety right now this actually disarms it
+    set_armed(False)
     rc = RCThread()
     rc.daemon = True
     rc.start()
-    while True:
+    while THROTTLE > 1150:
         poll = p.poll()
         if poll is not None:
             break
@@ -107,6 +131,7 @@ if __name__ == '__main__':
                 raw_yaw = decoded['sticks']['yaw']
                 PITCH = int(center - ((raw_pitch * dist) * dist_scale))
                 ROLL = int(center - ((raw_roll * dist) * dist_scale))
+                THROTTLE -= 1.0 / dist
                 if raw_yaw < 0:
                     raw_yaw = 1300
                 elif raw_yaw > 0:
@@ -116,12 +141,10 @@ if __name__ == '__main__':
             except JSONError as e:
                 print(e, out)
                 continue
-        sleep_time = 0.0
-        # sleep_time = 0.3 - (1.0 / fps)
-        # if sleep_time < 0.0 or sleep_time > 0.3:
-        #     sleep_time = 0.3
-        print('dist:', dist, 'p:', PITCH, 'r:', ROLL, 'y:', YAW,
-              't:', THROTTLE,
-              'fps:', fps, 'sleep:', sleep_time)
-        # time.sleep(sleep_time)
+        print('dist: %0.3f' % dist, 'p:', PITCH, 'r:', ROLL, 'y:', YAW,
+              't:', THROTTLE, 'fps: %0.3f' % fps, '    ', end='\r')
     print()
+    # Disarm copter
+    rc.stop()
+    set_armed(False)
+    print(time.time(), 'bye')
