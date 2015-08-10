@@ -31,16 +31,42 @@ conn = None
 rc = None
 
 
+ROLL = 1500
+PITCH = 1500
+YAW = 1500
+THROTTLE = 1600
+AUX1 = 1500
+AUX2 = 1500
+AUX3 = 1500
+AUX4 = 1500
+SLEEP = 0.1
+
+
 def set_armed(arm=False):
+    global ROLL, PITCH, YAW, THROTTLE, AUX1, AUX2, AUX3, AUX4, SLEEP
+    ROLL = 1500
+    PITCH = 1500
+    YAW = 1500
+    AUX1 = 1500
+    AUX2 = 1500
+    AUX3 = 1500
+    AUX4 = 1500
     if arm:
         print(time.time(), 'arming')
         yaw_val = 2000
     else:
         print(time.time(), 'disarming')
         yaw_val = 1000
+    if not arm:
+        while THROTTLE > 1000:
+            THROTTLE -= 10
+            conn.send(multiwii.tx_generate('MSP_SET_RAW_RC',
+                *[1500, 1500, 1500, THROTTLE, AUX1, AUX2, AUX3, AUX4]
+            ))
+            time.sleep(0.1)
     for i in range(0, 12):
         conn.send(multiwii.tx_generate('MSP_SET_RAW_RC',
-            *[1500, 1500, yaw_val, 1000] + [1500] * 4
+            *[1500, 1500, yaw_val, 1000, AUX1, AUX2, AUX3, AUX4]
         ))
         time.sleep(0.1)
 
@@ -62,14 +88,6 @@ def parse_args():
     return parser.parse_args()
 
 
-ROLL = 1500
-PITCH = 1500
-YAW = 1500
-THROTTLE = 1600
-OTHERS = [1500] * 4
-SLEEP = 0.1
-
-
 class RCThread(threading.Thread):
     def run(self):
         self.running = True
@@ -78,8 +96,8 @@ class RCThread(threading.Thread):
         local.conn.connect((args.addr, args.port))
         local.conn.settimeout(0.0)
         while self.running:
-            local.conn.send(multiwii.tx_generate(
-                'MSP_SET_RAW_RC', *[ROLL, PITCH, YAW, THROTTLE] + OTHERS
+            local.conn.send(multiwii.tx_generate('MSP_SET_RAW_RC',
+                *[ROLL, PITCH, YAW, THROTTLE, AUX1, AUX2, AUX3, AUX4]
             ))
             time.sleep(SLEEP)
 
@@ -124,6 +142,17 @@ if __name__ == '__main__':
 
     # Arm copter. For safety right now this actually disarms it
     set_armed(False)
+
+    # Smoothly ramp up to maximum throttle
+    for i in range(1000, 1700, 20):
+        THROTTLE = i
+        conn.send(multiwii.tx_generate('MSP_SET_RAW_RC',
+            *[1500, 1500, 1500, THROTTLE, AUX1, AUX2, AUX3, AUX4]
+        ))
+        time.sleep(0.1)
+
+    # Enable horizon mode (AUX1 set to high)
+    AUX1 = 2000
 
     # Start the RC thread. Now it has full control of the sticks, until
     # throttle reaches minimum value.
