@@ -54,6 +54,7 @@ def main():
     srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     srv.bind(('0.0.0.0', args.output_port))
+    srv.settimeout(0.0)
     srv.listen(0)
 
     clients = [srv]
@@ -64,6 +65,7 @@ def main():
             clients, [], []
         )
         for sock in read_socks:
+            sock.settimeout(0.0)
             if sock == srv:
                 sockfd, addr = srv.accept()
                 clients.append(sockfd)
@@ -81,8 +83,9 @@ def main():
                             s += r
                         if len(s) > 0:
                             sock.sendall(s)
-                        print('<<', data)
-                        print('>>', s)
+                        ser.flush()
+                        # print('<<', data)
+                        # print('>>', s)
                     else:
                         sock.close()
                         clients.remove(sock)

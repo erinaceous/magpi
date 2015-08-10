@@ -7,22 +7,21 @@
 """
 
 from __future__ import print_function
-import asyncproc
+import subprocess
+import threading
 import argparse
 import multiwii
 import atexit
 import socket
+import select
 try:
-    import simplejson as json
-    JSONError = json.JSONDecodeError
+    import cjson as json
+    json.loads = json.decode
+    JSONError = json.DecodeError
 except ImportError:
-    try:
-        import cjson as json
-        json.loads = json.decode
-        JSONError = json.DecodeError
-    except ImportError:
-        import json
-        JSONError = ValueError
+    import json
+    JSONError = ValueError
+    print('Warning: cjson module not found. Defaulting to slooow parser.')
 import time
 import os
 
@@ -31,6 +30,8 @@ p = None
 
 
 def kill_proc():
+    p.terminate()
+    time.sleep(2)
     p.kill()
 
 
@@ -43,25 +44,54 @@ def parse_args():
     return parser.parse_args()
 
 
+ROLL = 1500
+PITCH = 1500
+YAW = 1500
+THROTTLE = 1000
+OTHERS = [1500] * 4
+SLEEP = 0.1
+
+
+class RCThread(threading.Thread):
+    def run(self):
+        local = threading.local()
+        local.conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        local.conn.connect((args.addr, args.port))
+        local.conn.settimeout(0.0)
+        while True:
+            local.conn.send(multiwii.tx_generate(
+                'MSP_SET_RAW_RC', *[ROLL, PITCH, YAW, THROTTLE] + OTHERS
+            ))
+            time.sleep(SLEEP)
+
+
 if __name__ == '__main__':
     atexit.register(kill_proc)
     args = parse_args()
     conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     conn.connect((args.addr, args.port))
+    conn.settimeout(0.0)
     print()
     qt_args = []
     if args.output_video is not None:
         qt_args = [args.output_video]
-    p = asyncproc.Process(args.quadtarget_path)
+    p = subprocess.Popen(
+        ' '.join([args.quadtarget_path] + qt_args),
+        stdout=subprocess.PIPE
+    )
     center = 1500.0
     bounds = 500.0
     max_dist = 20.0
     dist_scale = bounds / max_dist
+    rc = RCThread()
+    rc.daemon = True
+    rc.start()
     while True:
-        poll = p.wait(os.WNOHANG)
+        poll = p.poll()
         if poll is not None:
             break
-        out = p.read()
+        out = p.stdout.readline()
+        p.stdout.flush()
         if out != "":
             try:
                 decoded = json.loads(out)
@@ -75,21 +105,23 @@ if __name__ == '__main__':
                 raw_pitch = 0.5 - (1.0 - decoded['sticks']['pitch'])
                 raw_roll = 0.5 - decoded['sticks']['roll']
                 raw_yaw = decoded['sticks']['yaw']
-                pitch = int(center - ((raw_pitch * dist) * dist_scale))
-                roll = int(center - ((raw_roll * dist) * dist_scale))
-                yaw = raw_yaw
-                if yaw < 0:
-                    yaw = 1300
-                elif yaw > 0:
-                    yaw = 1700
-                print(dist, pitch, roll, yaw)
-                others = [1000, 1500, 1500, 1500, 1500]
-                conn.send(multiwii.tx_generate(
-                    'MSP_SET_RAW_RC', *[roll, pitch, yaw] + others
-                ))
+                PITCH = int(center - ((raw_pitch * dist) * dist_scale))
+                ROLL = int(center - ((raw_roll * dist) * dist_scale))
+                if raw_yaw < 0:
+                    raw_yaw = 1300
+                elif raw_yaw > 0:
+                    raw_yaw = 1700
+                YAW = raw_yaw
+                fps = decoded['fps']
             except JSONError as e:
-                print(e)
-                print(out)
+                print(e, out)
                 continue
-            time.sleep(0)
+        sleep_time = 0.0
+        # sleep_time = 0.3 - (1.0 / fps)
+        # if sleep_time < 0.0 or sleep_time > 0.3:
+        #     sleep_time = 0.3
+        print('dist:', dist, 'p:', PITCH, 'r:', ROLL, 'y:', YAW,
+              't:', THROTTLE,
+              'fps:', fps, 'sleep:', sleep_time)
+        # time.sleep(sleep_time)
     print()
