@@ -1,8 +1,8 @@
 #!/usr/bin/env python2
 # vim: set tabstop=4 shiftwidth=4 textwidth=79 cc=72,79:
 """
-    get_targets: Run the quadtarget program and parse the JSON data
-    it outputs (example of how to use the program from python code)
+    track_targets: Run the quadtarget program and parse the JSON data
+    it outputs, use to set flight controller stick values via multiwiid.
     Original Author: Owain Jones [github.com/erinaceous] [contact@odj.me]
 """
 
