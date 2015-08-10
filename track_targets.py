@@ -34,7 +34,8 @@ rc = None
 ROLL = 1500
 PITCH = 1500
 YAW = 1500
-THROTTLE = 1600
+THROTTLE = 1000
+MAX_THROTTLE = 1700
 AUX1 = 1500
 AUX2 = 1500
 AUX3 = 1500
@@ -144,19 +145,27 @@ if __name__ == '__main__':
     set_armed(False)
 
     # Smoothly ramp up to maximum throttle
-    for i in range(1000, 1700, 20):
-        THROTTLE = i
+    while THROTTLE < MAX_THROTTLE:
+        THROTTLE += 20
         conn.send(multiwii.tx_generate('MSP_SET_RAW_RC',
             *[1500, 1500, 1500, THROTTLE, AUX1, AUX2, AUX3, AUX4]
         ))
         time.sleep(0.1)
 
-    # Enable horizon mode (AUX1 set to high)
+    # Enable horizon mode (AUX1 set to high), mag and gps hold modes
     AUX1 = 2000
+    AUX3 = 2000
+    AUX4 = 2000
 
     # Start the RC thread. Now it has full control of the sticks, until
     # throttle reaches minimum value.
     rc.start()
+
+    # Sleep a little while to allow copter to climb some more at high throttle
+    # Then enable baro hold mode.
+    time.sleep(2)
+    AUX2 = 2000
+
     while THROTTLE > 1150:
 
         # Check whether QuadTarget process is still running
