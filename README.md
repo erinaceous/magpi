@@ -26,7 +26,7 @@ controller.
 See `tools/test_arm.py` and `tools/test_controller.py` for two examples of this;
 sending RC commands to the flight controller through the multiwiid server.
 
-Otherwise, you can just use [http://pyserial.sourceforge.net/](PySerial) to send
+Otherwise, you can just use [PySerial](http://pyserial.sourceforge.net/) to send
 commands to your flight controller and read their responses.
 
 using the other stuff
