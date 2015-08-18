@@ -1,0 +1,13 @@
+[Unit]
+Description=Enable connection to serial port over TCP (for MultiWii tools)
+After=networking.target
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/conf.d/multiwii
+
+ExecStart=
+ExecStart=/usr/bin/multiwii_raw_serial_tcp.sh
+
+[Install]
+WantedBy=multi-user.target

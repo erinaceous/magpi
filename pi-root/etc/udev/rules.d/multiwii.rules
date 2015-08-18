@@ -1,0 +1,1 @@
+SUBSYSTEMS=="usb", DRIVERS=="cp210x", SYMLINK+="multiwii"

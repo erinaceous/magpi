@@ -3,6 +3,7 @@
 """
     track_targets: Run the quadtarget program and parse the JSON data
     it outputs, use to set flight controller stick values via multiwiid.
+    or PyQuadSim.
     Original Author: Owain Jones [github.com/erinaceous] [contact@odj.me]
 """
 
@@ -13,7 +14,6 @@ import argparse
 import multiwii
 import atexit
 import socket
-import select
 try:
     import cjson as json
     json.loads = json.decode
@@ -23,7 +23,6 @@ except ImportError:
     JSONError = ValueError
     print('Warning: cjson module not found. Defaulting to slooow parser.')
 import time
-import os
 
 
 p = None
@@ -86,10 +85,16 @@ def parse_args():
     parser.add_argument('-a', '--addr', default='127.0.0.1')
     parser.add_argument('-p', '--port', default=5001)
     parser.add_argument('-o', '--output-video', default=None)
+    parser.add_argument('-s', '--quadsim', action='store_true',
+                        default=False)
     return parser.parse_args()
 
 
 class RCThread(threading.Thread):
+    def __init__(self, quadsim=False):
+        threading.Thread.__init__(self)
+        self.quadsim = quadsim
+
     def run(self):
         self.running = True
         local = threading.local()
@@ -138,7 +143,7 @@ if __name__ == '__main__':
     # Set up thread for sending RC commands. This is needed so we can
     # send commands at a constant rate regardless of QuadTarget's
     # framerate.
-    rc = RCThread()
+    rc = RCThread(args.pyquadsim)
     rc.daemon = True
 
     # Arm copter. For safety right now this actually disarms it

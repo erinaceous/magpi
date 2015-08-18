@@ -1,0 +1,1 @@
+SUBSYSTEMS=="usb-serial", DRIVERS=="option1", SYMLINK+="huawei"

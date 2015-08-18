@@ -14,23 +14,33 @@
 
 from __future__ import print_function
 import argparse
-import config
 import select
 import serial
 import socket
 import time
 
 
+config = __import__('configparser').ConfigParser()
+config.read_file('/etc/magpi.ini')
+config = config['multiwiid']
+
+
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('-s', '--serial-port', default=config.SERIAL_PORT,
-                        help='Serial port to communicate with MultiWii over')
-    parser.add_argument('-o', '--output-port', default=config.OUTPUT_PORT,
-                        help='Allow clients to connect on this TCP port')
+    parser.add_argument(
+        '-s', '--serial-port',
+        default=config.get('serial_dev'),
+        help='Serial device to communicate with MultiWii over'
+    )
+    parser.add_argument(
+        '-o', '--output-port',
+        default=config.getint('listen_port'),
+        help='Allow clients to connect on this TCP port'
+    )
     return parser.parse_args()
 
 
-def serial_config(serial_port=config.SERIAL_PORT):
+def serial_config(serial_port=config.get('serial_dev')):
     # Thanks to
     # http://www.calvin.edu/academic/engineering/2013-14-team8/code/final/MultiWii_Telemetry_RevH.py.tmp20140503-19-1pkuhii
     # who I copy-pasted this block from, saving me a bunch of time

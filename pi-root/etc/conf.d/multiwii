@@ -1,0 +1,5 @@
+# Config stuff for multiwii-raw.service
+
+MW_SERIAL_PORT=/dev/ttyUSB0
+MW_SERIAL_BAUD=115200
+MW_TCP_PORT=5001

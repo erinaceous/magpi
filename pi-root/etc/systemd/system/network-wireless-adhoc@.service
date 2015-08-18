@@ -1,0 +1,26 @@
+[Unit]
+Description=Ad-hoc wireless network connectivity (%i)
+#Wants=network.target
+Before=network.target
+BindsTo=sys-subsystem-net-devices-%i.device
+After=sys-subsystem-net-devices-%i.device
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+EnvironmentFile=/etc/conf.d/network-wireless-adhoc@%i
+
+ExecStart=/usr/bin/iwconfig %i mode ad-hoc
+ExecStart=/usr/bin/ifconfig %i up
+ExecStart=/usr/bin/iwconfig %i essid ${adhoc_essid}
+ExecStart=/usr/bin/sleep 10
+ExecStart=/usr/bin/avahi-autoipd -D %i
+
+ExecStop=/usr/bin/avahi-autoipd -k %i
+ExecStop=/usr/bin/iwconfig %i essid off
+ExecStop=/usr/bin/iwconfig %i mode managed
+ExecStop=/usr/bin/ifconfig %i down
+
+[Install]
+WantedBy=multi-user.target
+

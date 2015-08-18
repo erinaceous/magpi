@@ -18,10 +18,12 @@ import strconv
 import config
 import struct
 import socket
-import array
 import gzip
 import time
-import sys
+
+
+config = __import__('configparser').ConfigParser()
+config.read_file(open('/etc/magpi.ini', 'r'))
 
 
 recv_buffer = 1048576
@@ -29,36 +31,57 @@ recv_buffer = 1048576
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--header-every', type=int,
-                        default=config.HEADER_EVERY,
-                        help='Broadcast data header every N broadcasts')
-    parser.add_argument('-n', '--name', default=config.NAME,
-                        help='Name/ID of quadcopter.')
-    parser.add_argument('-t', '--input-port', default=config.OUTPUT_PORT,
-                        help='Port to communicate with multiwiid over')
-    parser.add_argument('-l', '--log', default=config.THINGS_TO_LOG,
-                        help='Comma-delimited list of serial commands to run')
-    parser.add_argument('-o', '--output', default=config.FILE_PREFIX,
-                        help='File to put CSV output in. Can also gzip files.')
-    parser.add_argument('-i', '--interactive', default=False,
-                        action='store_true')
-    parser.add_argument('-p', '--udp-port', type=int, default=config.UDP_PORT)
+    parser.add_argument(
+        '--header-every', type=int,
+        default=config['read_telemetry'].getint('header_every'),
+        help='Broadcast data header every N broadcasts'
+    )
+    parser.add_argument(
+        '-n', '--name',
+        default=config['read_telemetry'].get('name'),
+        help='Name/ID of quadcopter.'
+    )
+    parser.add_argument(
+        '-t', '--input-port',
+        default=config['multiwiid'].getint('listen_port'),
+        help='Port to communicate with multiwiid over'
+    )
+    parser.add_argument(
+        '-l', '--log',
+        default=config['read_telemetry'].get('log'),
+        help='Comma-delimited list of serial commands to run'
+    )
+    parser.add_argument(
+        '-o', '--output',
+        default=config['read_telemetry'].get('file_prefix'),
+        help='File to put CSV output in. Can also gzip files.'
+    )
+    parser.add_argument(
+        '-i', '--interactive', default=False,
+        action='store_true'
+    )
+    parser.add_argument(
+        '-p', '--udp-port', type=int,
+        default=config['read_telemetry'].getint('udp_port')
+    )
     return parser.parse_args()
 
 
-def socket_config(socket_port=config.OUTPUT_PORT):
+def socket_config(socket_port=config['multiwiid'].getint('listen_port')):
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.connect(('127.0.0.1', socket_port))
     return sock
 
 
-def get_packet(sock, name, wait_time=config.CMD_WAIT_TIME):
+def get_packet(sock, name,
+               wait_time=config['read_telemetry'].getfloat('cmd_wait_time')):
     sock.send(multiwii.get_command(name))
     s = sock.recv(recv_buffer)
     return multiwii.rx_parse(name, s)
 
 
-def get_multiple_packets(sock, names, wait_time=config.CMD_WAIT_TIME):
+def get_multiple_packets(sock, names,
+                         wait_time=config['read_telemetry'].getfloat('cmd_wait_time')):
     sock.send(b''.join([multiwii.get_command(name) for name in names]))
     output = OrderedDict()
     # input = array.array('c', sock.recv(recv_buffer))
@@ -72,7 +95,8 @@ def get_multiple_packets(sock, names, wait_time=config.CMD_WAIT_TIME):
     return output
 
 
-def send_multiple_packets(sock, datas, wait_time=config.CMD_WAIT_TIME):
+def send_multiple_packets(sock, datas,
+                          wait_time=config['read_telemetry'].getfloat('cmd_wait_time')):
     packets = ''
     for data in datas:
         data = data.strip().split(' ')
@@ -137,13 +161,14 @@ def main():
     # print('-' * 79)
 
     frame = 0
-    wait_time = config.CMD_WAIT_TIME
+    wait_time = config['read_telemetry'].getfloat('cmd_wait_time')
     nErrs = 0
     header_written = False
     started = time.time()
     cam_proc = None
 
-    if config.RECORD_CAMERA and args.video is not None:
+    if config['read_telemetry'].getboolean('record_camera')\
+    and args.video is not None:
         cam_proc = subprocess.Popen([
             '/root/magpi/record_camera.sh', args.video
         ])
@@ -158,7 +183,8 @@ def main():
             prompt = input('> ')
         timestamp = time.time()
         if nErrs > 1:
-            if timestamp <= (started + config.WARMUP_TIME):
+            if timestamp <= (started +
+                    config['read_telemetry'].getfloat('warmup_time')):
                 wait_time += 0.01
             nErrs = 0
         if args.interactive and prompt is not '':
