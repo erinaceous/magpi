@@ -2,7 +2,7 @@
 
 pacman -Syu
 pacman -S wireless_tools avahi socat aircrack-ng python2 python2-pip git mercurial python2-pyserial nss-mdns rng-tools hostapd dnsmasq cmake cmake-extra-modules opencv boost make gcc mosh f2fs-tools usb_modeswitch usbutils vnstat ppp wget watchdog
-python2 -m easy_install strconv
+python2 -m easy_install strconv configparser
 systemctl enable rngd
 systemctl enable avahi-daemon
 systemctl enable hostapd
