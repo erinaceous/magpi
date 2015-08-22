@@ -21,7 +21,7 @@ import time
 
 
 config = __import__('configparser').ConfigParser()
-config.read_file('/etc/magpi.ini')
+config.read_file(open('/etc/magpi.ini', 'r'))
 config = config['multiwiid']
 
 
