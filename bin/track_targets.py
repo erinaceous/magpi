@@ -157,19 +157,14 @@ if __name__ == '__main__':
         ))
         time.sleep(0.1)
 
-    # Enable horizon mode (AUX1 set to high), mag and gps hold modes
-    AUX1 = 2000
-    AUX3 = 2000
-    AUX4 = 2000
-
     # Start the RC thread. Now it has full control of the sticks, until
     # throttle reaches minimum value.
     rc.start()
 
     # Sleep a little while to allow copter to climb some more at high throttle
-    # Then enable baro hold mode.
+    # Then enable all the hold modes.
     time.sleep(2)
-    AUX2 = 2000
+    AUX1 = 2000
 
     while THROTTLE > 1150:
 
@@ -179,9 +174,10 @@ if __name__ == '__main__':
             break
 
         # Clear QuadTarget output, so that we'll get the newest data.
-        p.stdout.flush()
+        # p.stdout.flush()
 
         # Read JSON data from QuadTarget and decode it.
+        p.stdin.write('\n')
         out = p.stdout.readline()
         if out != "":
             try:
